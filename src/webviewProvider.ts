@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import { TerminalTracker, TerminalInfo } from './terminalTracker';
+import { ClaudeStatusWatcher } from './claudeStatusWatcher';
 
 export class TerminalManagerViewProvider implements vscode.WebviewViewProvider {
   public static readonly viewType = 'terminalManager.view';
@@ -9,12 +10,14 @@ export class TerminalManagerViewProvider implements vscode.WebviewViewProvider {
 
   constructor(
     private readonly tracker: TerminalTracker,
+    private readonly claudeWatcher: ClaudeStatusWatcher,
     private readonly extensionUri: vscode.Uri,
   ) {
     this.disposables.push(
       tracker.onDidChange(() => this.updateView()),
+      claudeWatcher.onDidChange(() => this.updateView()),
       vscode.workspace.onDidChangeConfiguration((e) => {
-        if (e.affectsConfiguration('terminalManager.fields') || e.affectsConfiguration('terminalManager.styles')) {
+        if (e.affectsConfiguration('terminalManager')) {
           this.updateView();
         }
       }),
@@ -71,21 +74,54 @@ export class TerminalManagerViewProvider implements vscode.WebviewViewProvider {
     return config.get<string[]>('fields', ['name', 'status', 'unread']);
   }
 
-  private updateView(): void {
+  private getClaudeStatusFields(): string[] {
+    const config = vscode.workspace.getConfiguration('terminalManager');
+    return config.get<string[]>('claudeStatus.fields', [
+      'agent.name',
+      'model.display_name',
+      'context_window.remaining_percentage',
+    ]);
+  }
+
+  private async updateView(): Promise<void> {
     if (!this.view) return;
 
     const terminals = this.tracker.getTerminals();
     const activeTerminal = this.tracker.getActiveTerminal();
     const fields = this.getFields();
+    const claudeFields = this.getClaudeStatusFields();
 
-    const data = terminals.map((info) => ({
-      name: info.name,
-      isRunning: info.isRunning,
-      hasUnread: info.hasUnread,
-      isActive: info.terminal === activeTerminal,
-      iconId: info.iconId,
-      color: info.color,
-    }));
+    const data = await Promise.all(
+      terminals.map(async (info) => {
+        let claudeStatus: Record<string, string> | undefined;
+
+        if (fields.includes('claudeStatus')) {
+          const pid = await info.terminal.processId;
+          if (pid) {
+            const status = this.claudeWatcher.getStatus(pid);
+            if (status) {
+              claudeStatus = {};
+              for (const field of claudeFields) {
+                const value = ClaudeStatusWatcher.resolveField(status, field);
+                if (value !== undefined && value !== null && value !== '') {
+                  claudeStatus[field] = String(value);
+                }
+              }
+            }
+          }
+        }
+
+        return {
+          name: info.name,
+          isRunning: info.isRunning,
+          hasUnread: info.hasUnread,
+          isActive: info.terminal === activeTerminal,
+          iconId: info.iconId,
+          color: info.color,
+          claudeStatus,
+        };
+      }),
+    );
 
     this.view.webview.postMessage({ type: 'update', terminals: data, fields });
   }
@@ -194,6 +230,26 @@ export class TerminalManagerViewProvider implements vscode.WebviewViewProvider {
       opacity: 1 !important;
       background: var(--vscode-toolbar-hoverBackground);
     }
+    .claude-status {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.85em;
+      opacity: 0.8;
+      padding-left: 22px;
+      flex-wrap: wrap;
+    }
+    .claude-field {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+    }
+    .claude-field-label {
+      opacity: 0.6;
+    }
+    .context-low { color: var(--vscode-terminal-ansiRed); }
+    .context-mid { color: var(--vscode-terminal-ansiYellow); }
+    .context-high { color: var(--vscode-terminal-ansiGreen); }
     .empty-state {
       padding: 16px;
       text-align: center;
@@ -266,6 +322,32 @@ export class TerminalManagerViewProvider implements vscode.WebviewViewProvider {
             case 'unread': {
               if (t.hasUnread) {
                 secondaryParts.push('<span class="badge badge-unread">unread</span>');
+              }
+              break;
+            }
+            case 'claudeStatus': {
+              if (t.claudeStatus) {
+                const items = [];
+                for (const [key, value] of Object.entries(t.claudeStatus)) {
+                  const label = key.split('.').pop();
+                  let display = escapeHtml(value);
+
+                  if (key === 'context_window.remaining_percentage') {
+                    const pct = parseFloat(value);
+                    const cls = pct < 20 ? 'context-low' : pct < 50 ? 'context-mid' : 'context-high';
+                    display = '<span class="' + cls + '">' + Math.round(pct) + '%</span>';
+                  }
+
+                  items.push(
+                    '<span class="claude-field">' +
+                      '<span class="claude-field-label">' + escapeHtml(label) + ':</span> ' +
+                      display +
+                    '</span>'
+                  );
+                }
+                if (items.length > 0) {
+                  parts.push('<div class="claude-status">' + items.join(' · ') + '</div>');
+                }
               }
               break;
             }

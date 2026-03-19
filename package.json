@@ -33,7 +33,8 @@
             "enum": [
               "name",
               "status",
-              "unread"
+              "unread",
+              "claudeStatus"
             ]
           },
           "default": [
@@ -41,7 +42,19 @@
             "status",
             "unread"
           ],
-          "description": "Ordered list of fields to display for each terminal. 'name' shows the terminal name with icon/color. 'status' shows running/idle badge. 'unread' shows unread badge."
+          "description": "Ordered list of fields to display for each terminal. 'name' shows the terminal name with icon/color. 'status' shows running/idle badge. 'unread' shows unread badge. 'claudeStatus' shows Claude Code session info."
+        },
+        "terminalManager.claudeStatus.fields": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [
+            "agent.name",
+            "model.display_name",
+            "context_window.remaining_percentage"
+          ],
+          "description": "Dotted field paths from the Claude Code statusline JSON to display. Available: agent.name, model.display_name, session_name, context_window.remaining_percentage, cost.total_duration_ms, cost.total_api_duration_ms, cost.total_lines_added, cost.total_lines_removed, workspace.current_dir, vim.mode"
         },
         "terminalManager.styles": {
           "type": "array",
