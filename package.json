@@ -1,0 +1,87 @@
+{
+  "name": "terminal-manager",
+  "displayName": "Terminal Manager",
+  "description": "Enhanced terminal overview with status indicators",
+  "version": "0.0.1",
+  "engines": {
+    "vscode": "^1.93.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "views": {
+      "explorer": [
+        {
+          "type": "webview",
+          "id": "terminalManager.view",
+          "name": "Terminal Manager"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Terminal Manager",
+      "properties": {
+        "terminalManager.fields": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "name",
+              "status",
+              "unread"
+            ]
+          },
+          "default": [
+            "name",
+            "status",
+            "unread"
+          ],
+          "description": "Ordered list of fields to display for each terminal. 'name' shows the terminal name with icon/color. 'status' shows running/idle badge. 'unread' shows unread badge."
+        },
+        "terminalManager.styles": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "match": {
+                "type": "string",
+                "description": "Regex pattern matched against the terminal name."
+              },
+              "icon": {
+                "type": "string",
+                "description": "Codicon id (e.g. 'terminal', 'play', 'rocket', 'bug', 'gear')."
+              },
+              "color": {
+                "type": "string",
+                "description": "Theme color id (e.g. 'terminal.ansiGreen', 'terminal.ansiRed')."
+              }
+            },
+            "required": [
+              "match"
+            ]
+          },
+          "default": [],
+          "description": "Style rules applied to terminals by name. Each rule has a 'match' regex, and optional 'icon' and 'color' overrides. First matching rule wins."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/vscode": "^1.93.0",
+    "typescript": "^5.5.0"
+  },
+  "dependencies": {
+    "@vscode/codicons": "^0.0.45"
+  }
+}
