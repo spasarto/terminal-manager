@@ -4,6 +4,9 @@ export interface TerminalInfo {
   terminal: vscode.Terminal;
   name: string;
   isRunning: boolean;
+  runningCommand: string;
+  processIcon: string;
+  processColor: string;
   hasUnread: boolean;
   cwd: string;
   iconId: string;
@@ -13,6 +16,12 @@ export interface TerminalInfo {
 }
 
 interface StyleRule {
+  match: string;
+  icon?: string;
+  color?: string;
+}
+
+interface ProcessStyleRule {
   match: string;
   icon?: string;
   color?: string;
@@ -78,8 +87,12 @@ export class TerminalTracker implements vscode.Disposable {
           this.idleTimers.delete(e.terminal);
         }
         const info = this.terminals.get(e.terminal);
-        if (info && !info.isRunning) {
-          info.isRunning = true;
+        if (info) {
+          const cmd = e.execution.commandLine.value.trim();
+          info.runningCommand = cmd.split(/\s+/)[0].split('/').pop() || cmd;
+          if (!info.isRunning) {
+            info.isRunning = true;
+          }
           this._onDidChange.fire();
         }
       }),
@@ -95,6 +108,7 @@ export class TerminalTracker implements vscode.Disposable {
           const info = this.terminals.get(e.terminal);
           if (info && info.isRunning) {
             info.isRunning = false;
+            info.runningCommand = '';
             this._onDidChange.fire();
           }
         }, TerminalTracker.IDLE_DEBOUNCE_MS);
@@ -148,6 +162,9 @@ export class TerminalTracker implements vscode.Disposable {
       terminal,
       name: terminal.name,
       isRunning: false,
+      runningCommand: '',
+      processIcon: '',
+      processColor: '',
       hasUnread: false,
       cwd: '',
       iconId: 'terminal',
@@ -158,14 +175,15 @@ export class TerminalTracker implements vscode.Disposable {
   }
 
   getTerminals(): TerminalInfo[] {
-    const styles = vscode.workspace
-      .getConfiguration('terminalManager')
-      .get<StyleRule[]>('styles', []);
+    const config = vscode.workspace.getConfiguration('terminalManager');
+    const styles = config.get<StyleRule[]>('styles', []);
+    const processStyles = config.get<ProcessStyleRule[]>('processStyles', []);
 
     const result: TerminalInfo[] = [];
     for (const [terminal, info] of this.terminals) {
       info.name = terminal.name;
       this.applyStyle(info, styles);
+      this.applyProcessStyle(info, processStyles);
       result.push(info);
     }
     return result;
@@ -195,6 +213,35 @@ export class TerminalTracker implements vscode.Disposable {
 
     info.iconId = iconId;
     info.color = color;
+  }
+
+  private applyProcessStyle(info: TerminalInfo, processStyles: ProcessStyleRule[]): void {
+    info.processIcon = '';
+    info.processColor = '';
+
+    if (!info.isRunning || !info.runningCommand) return;
+
+    for (const rule of processStyles) {
+      try {
+        if (new RegExp(rule.match).test(info.runningCommand)) {
+          if (rule.icon) {
+            info.processIcon = rule.icon;
+            if (info.iconId === 'terminal') {
+              info.iconId = rule.icon;
+            }
+          }
+          if (rule.color) {
+            info.processColor = rule.color;
+            if (!info.color) {
+              info.color = rule.color;
+            }
+          }
+          break;
+        }
+      } catch {
+        // Invalid regex, skip
+      }
+    }
   }
 
   getActiveTerminal(): vscode.Terminal | undefined {

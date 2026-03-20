@@ -117,6 +117,9 @@ export class TerminalManagerViewProvider implements vscode.WebviewViewProvider {
         return {
           name: info.name,
           isRunning: info.isRunning,
+          runningCommand: info.runningCommand,
+          processIcon: info.processIcon,
+          processColor: info.processColor,
           hasUnread: info.hasUnread,
           isActive: info.terminal === activeTerminal,
           iconId: info.iconId,
@@ -328,10 +331,22 @@ export class TerminalManagerViewProvider implements vscode.WebviewViewProvider {
               break;
             }
             case 'status': {
-              const badge = t.isRunning
-                ? '<span class="badge badge-running">running</span>'
-                : '<span class="badge badge-idle">idle</span>';
-              secondaryParts.push(badge);
+              if (t.isRunning) {
+                const iconHtml = t.processIcon
+                  ? '<span class="codicon codicon-' + escapeHtml(t.processIcon) + '" style="font-size:0.9em"></span> '
+                  : '';
+                const resolvedProcessColor = t.processColor
+                  ? (colorMap[t.processColor] || t.processColor)
+                  : '';
+                const colorStyle = resolvedProcessColor
+                  ? ' style="background:' + resolvedProcessColor + '"'
+                  : '';
+                secondaryParts.push(
+                  '<span class="badge badge-running"' + colorStyle + '>' + iconHtml + escapeHtml(t.runningCommand || 'running') + '</span>'
+                );
+              } else {
+                secondaryParts.push('<span class="badge badge-idle">idle</span>');
+              }
               break;
             }
             case 'unread': {

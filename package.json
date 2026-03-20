@@ -58,6 +58,31 @@
                     ],
                     "description": "Dotted field paths from the Claude Code statusline JSON to display. Available: agent.name, model.display_name, session_name, context_window.remaining_percentage, cost.total_duration_ms, cost.total_api_duration_ms, cost.total_lines_added, cost.total_lines_removed, workspace.current_dir, vim.mode"
                 },
+                "terminalManager.processStyles": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "match": {
+                                "type": "string",
+                                "description": "Regex pattern matched against the running process name."
+                            },
+                            "icon": {
+                                "type": "string",
+                                "description": "Codicon id (e.g. 'play', 'rocket', 'bug'). Also overrides the terminal tab icon while running."
+                            },
+                            "color": {
+                                "type": "string",
+                                "description": "Theme color id (e.g. 'terminal.ansiGreen', 'terminal.ansiRed') for the status badge."
+                            }
+                        },
+                        "required": [
+                            "match"
+                        ]
+                    },
+                    "default": [],
+                    "description": "Style rules for the running-process badge. Each rule has a 'match' regex tested against the process name, and optional 'icon' and 'color' overrides. First matching rule wins. If 'icon' is set, it also overrides the terminal tab icon while the process is running."
+                },
                 "terminalManager.styles": {
                     "type": "array",
                     "items": {
