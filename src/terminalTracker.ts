@@ -30,6 +30,7 @@ interface ProcessStyleRule {
 
 export class TerminalTracker implements vscode.Disposable {
   private terminals: Map<vscode.Terminal, TerminalInfo> = new Map();
+  private terminalOrder: vscode.Terminal[] = [];
   private disposables: vscode.Disposable[] = [];
   private activeTerminal: vscode.Terminal | undefined;
   private pollInterval: ReturnType<typeof setInterval> | undefined;
@@ -61,6 +62,7 @@ export class TerminalTracker implements vscode.Disposable {
           this.idleTimers.delete(t);
         }
         this.terminals.delete(t);
+        this.terminalOrder = this.terminalOrder.filter((x) => x !== t);
         this._onDidChange.fire();
       }),
       vscode.window.onDidChangeActiveTerminal((t) => {
@@ -179,6 +181,7 @@ export class TerminalTracker implements vscode.Disposable {
   }
 
   private addTerminal(terminal: vscode.Terminal): void {
+    this.terminalOrder.push(terminal);
     this.terminals.set(terminal, {
       terminal,
       name: terminal.name,
@@ -240,7 +243,9 @@ export class TerminalTracker implements vscode.Disposable {
     const processStyles = config.get<ProcessStyleRule[]>("processStyles", []);
 
     const result: TerminalInfo[] = [];
-    for (const [terminal, info] of this.terminals) {
+    for (const terminal of this.terminalOrder) {
+      const info = this.terminals.get(terminal);
+      if (!info) continue;
       info.name = terminal.name;
       this.applyStyle(info, styles);
       this.applyProcessStyle(info, processStyles);
@@ -302,6 +307,15 @@ export class TerminalTracker implements vscode.Disposable {
         // Invalid regex, skip
       }
     }
+  }
+
+  reorderTerminals(fromIndex: number, toIndex: number): void {
+    if (fromIndex < 0 || fromIndex >= this.terminalOrder.length) return;
+    if (toIndex < 0 || toIndex >= this.terminalOrder.length) return;
+    if (fromIndex === toIndex) return;
+    const [moved] = this.terminalOrder.splice(fromIndex, 1);
+    this.terminalOrder.splice(toIndex, 0, moved);
+    this._onDidChange.fire();
   }
 
   getActiveTerminal(): vscode.Terminal | undefined {

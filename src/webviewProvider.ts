@@ -97,6 +97,10 @@ export class TerminalManagerViewProvider implements vscode.WebviewViewProvider {
           }
           break;
         }
+        case "reorderTerminals": {
+          this.tracker.reorderTerminals(message.fromIndex, message.toIndex);
+          break;
+        }
       }
     });
   }
@@ -310,6 +314,12 @@ export class TerminalManagerViewProvider implements vscode.WebviewViewProvider {
     .detail-field-label {
       opacity: 0.6;
     }
+    .terminal-item.dragging {
+      opacity: 0.4;
+    }
+    .terminal-item.drag-over {
+      border-top: 2px solid var(--vscode-focusBorder);
+    }
     .empty-state {
       padding: 16px;
       text-align: center;
@@ -486,6 +496,8 @@ export class TerminalManagerViewProvider implements vscode.WebviewViewProvider {
         }
 
         return '<div class="terminal-item ' + (t.isActive ? 'active' : '') + '"' +
+          ' draggable="true"' +
+          ' data-index="' + i + '"' +
           ' onclick="selectTerminal(' + i + ')"' +
           ' oncontextmenu="showContextMenu(event, ' + i + ')"' +
           ' title="' + escapeHtml(t.name) + '">' +
@@ -564,6 +576,51 @@ export class TerminalManagerViewProvider implements vscode.WebviewViewProvider {
         vscode.postMessage({ type: 'killTerminal', index: contextMenuIndex });
       }
       hideContextMenu();
+    });
+
+    // Drag and drop reordering
+    let dragFromIndex = -1;
+
+    list.addEventListener('dragstart', (e) => {
+      const item = e.target.closest('.terminal-item');
+      if (!item) return;
+      dragFromIndex = parseInt(item.dataset.index, 10);
+      item.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+    });
+
+    list.addEventListener('dragend', (e) => {
+      const item = e.target.closest('.terminal-item');
+      if (item) item.classList.remove('dragging');
+      document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+      dragFromIndex = -1;
+    });
+
+    list.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      const item = e.target.closest('.terminal-item');
+      document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+      if (item && parseInt(item.dataset.index, 10) !== dragFromIndex) {
+        item.classList.add('drag-over');
+      }
+    });
+
+    list.addEventListener('dragleave', (e) => {
+      const item = e.target.closest('.terminal-item');
+      if (item) item.classList.remove('drag-over');
+    });
+
+    list.addEventListener('drop', (e) => {
+      e.preventDefault();
+      document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+      const item = e.target.closest('.terminal-item');
+      if (!item || dragFromIndex < 0) return;
+      const toIndex = parseInt(item.dataset.index, 10);
+      if (dragFromIndex !== toIndex) {
+        vscode.postMessage({ type: 'reorderTerminals', fromIndex: dragFromIndex, toIndex });
+      }
+      dragFromIndex = -1;
     });
 
     // Signal to the extension that the webview is ready
