@@ -1,6 +1,13 @@
 import * as vscode from 'vscode';
 import { TerminalTracker, TerminalInfo } from './terminalTracker';
-import { ClaudeStatusWatcher } from './claudeStatusWatcher';
+import { TerminalVarsWatcher } from './terminalVarsWatcher';
+
+interface FieldStyleRule {
+  match: string;
+  color?: string;
+  icon?: string;
+  label?: string;
+}
 
 export class TerminalManagerViewProvider implements vscode.WebviewViewProvider {
   public static readonly viewType = 'terminalManager.view';
@@ -10,12 +17,12 @@ export class TerminalManagerViewProvider implements vscode.WebviewViewProvider {
 
   constructor(
     private readonly tracker: TerminalTracker,
-    private readonly claudeWatcher: ClaudeStatusWatcher,
+    private readonly varsWatcher: TerminalVarsWatcher,
     private readonly extensionUri: vscode.Uri,
   ) {
     this.disposables.push(
       tracker.onDidChange(() => this.updateView()),
-      claudeWatcher.onDidChange(() => this.updateView()),
+      varsWatcher.onDidChange(() => this.updateView()),
       vscode.workspace.onDidChangeConfiguration((e) => {
         if (e.affectsConfiguration('terminalManager')) {
           this.updateView();
@@ -74,13 +81,14 @@ export class TerminalManagerViewProvider implements vscode.WebviewViewProvider {
     return config.get<string[]>('fields', ['name', 'status', 'unread']);
   }
 
-  private getClaudeStatusFields(): string[] {
+  private getDetailsFields(): string[] {
     const config = vscode.workspace.getConfiguration('terminalManager');
-    return config.get<string[]>('claudeStatus.fields', [
-      'agent.name',
-      'model.display_name',
-      'context_window.remaining_percentage',
-    ]);
+    return config.get<string[]>('details.fields', []);
+  }
+
+  private getFieldStyles(): FieldStyleRule[] {
+    const config = vscode.workspace.getConfiguration('terminalManager');
+    return config.get<FieldStyleRule[]>('details.fieldStyles', []);
   }
 
   private async updateView(): Promise<void> {
@@ -89,22 +97,44 @@ export class TerminalManagerViewProvider implements vscode.WebviewViewProvider {
     const terminals = this.tracker.getTerminals();
     const activeTerminal = this.tracker.getActiveTerminal();
     const fields = this.getFields();
-    const claudeFields = this.getClaudeStatusFields();
+    const detailsFields = this.getDetailsFields();
+    const fieldStyles = this.getFieldStyles();
 
     const data = await Promise.all(
       terminals.map(async (info) => {
-        let claudeStatus: Record<string, string> | undefined;
+        let details: Record<string, string> | undefined;
+        let resolvedFieldStyles: Record<string, { color?: string; icon?: string; label?: string }> | undefined;
 
-        if (fields.includes('claudeStatus')) {
+        if (fields.includes('details') && detailsFields.length > 0) {
           const pid = await info.terminal.processId;
           if (pid) {
-            const status = this.claudeWatcher.getStatus(pid);
-            if (status) {
-              claudeStatus = {};
-              for (const field of claudeFields) {
-                const value = ClaudeStatusWatcher.resolveField(status, field);
-                if (value !== undefined && value !== null && value !== '') {
-                  claudeStatus[field] = String(value);
+            const vars = this.varsWatcher.getVars(pid);
+            if (vars) {
+              details = {};
+              for (const key of detailsFields) {
+                if (key in vars) {
+                  details[key] = vars[key];
+                }
+              }
+
+              // Resolve field styles with variable references
+              if (fieldStyles.length > 0) {
+                resolvedFieldStyles = {};
+                for (const key of detailsFields) {
+                  for (const rule of fieldStyles) {
+                    try {
+                      if (new RegExp(rule.match).test(key)) {
+                        resolvedFieldStyles[key] = {
+                          color: resolveVar(rule.color, vars),
+                          icon: resolveVar(rule.icon, vars),
+                          label: resolveVar(rule.label, vars),
+                        };
+                        break;
+                      }
+                    } catch {
+                      // Invalid regex, skip
+                    }
+                  }
                 }
               }
             }
@@ -125,7 +155,8 @@ export class TerminalManagerViewProvider implements vscode.WebviewViewProvider {
           iconId: info.iconId,
           color: info.color,
           cwd,
-          claudeStatus,
+          details,
+          fieldStyles: resolvedFieldStyles,
         };
       }),
     );
@@ -237,7 +268,7 @@ export class TerminalManagerViewProvider implements vscode.WebviewViewProvider {
       opacity: 1 !important;
       background: var(--vscode-toolbar-hoverBackground);
     }
-    .claude-status {
+    .details-row {
       display: flex;
       align-items: center;
       gap: 6px;
@@ -246,17 +277,14 @@ export class TerminalManagerViewProvider implements vscode.WebviewViewProvider {
       padding-left: 22px;
       flex-wrap: wrap;
     }
-    .claude-field {
+    .detail-field {
       display: inline-flex;
       align-items: center;
       gap: 3px;
     }
-    .claude-field-label {
+    .detail-field-label {
       opacity: 0.6;
     }
-    .context-low { color: var(--vscode-terminal-ansiRed); }
-    .context-mid { color: var(--vscode-terminal-ansiYellow); }
-    .context-high { color: var(--vscode-terminal-ansiGreen); }
     .empty-state {
       padding: 16px;
       text-align: center;
@@ -284,6 +312,11 @@ export class TerminalManagerViewProvider implements vscode.WebviewViewProvider {
       'terminal.ansiWhite': 'var(--vscode-terminal-ansiWhite)',
     };
 
+    function resolveColor(color) {
+      if (!color) return '';
+      return colorMap[color] || color;
+    }
+
     window.addEventListener('message', (event) => {
       const message = event.data;
       if (message.type === 'update') {
@@ -304,9 +337,7 @@ export class TerminalManagerViewProvider implements vscode.WebviewViewProvider {
         for (const field of fields) {
           switch (field) {
             case 'name': {
-              const resolvedColor = t.color
-                ? (colorMap[t.color] || t.color)
-                : '';
+              const resolvedColor = resolveColor(t.color);
               const colorStyle = resolvedColor
                 ? ' style="color:' + resolvedColor + '"'
                 : '';
@@ -322,7 +353,7 @@ export class TerminalManagerViewProvider implements vscode.WebviewViewProvider {
             case 'cwd': {
               if (t.cwd) {
                 secondaryParts.push(
-                  '<span class="claude-field">' +
+                  '<span class="detail-field">' +
                     '<span class="codicon codicon-folder" style="font-size:0.9em"></span> ' +
                     escapeHtml(t.cwd) +
                   '</span>'
@@ -335,9 +366,7 @@ export class TerminalManagerViewProvider implements vscode.WebviewViewProvider {
                 const iconHtml = t.processIcon
                   ? '<span class="codicon codicon-' + escapeHtml(t.processIcon) + '" style="font-size:0.9em"></span> '
                   : '';
-                const resolvedProcessColor = t.processColor
-                  ? (colorMap[t.processColor] || t.processColor)
-                  : '';
+                const resolvedProcessColor = resolveColor(t.processColor);
                 const colorStyle = resolvedProcessColor
                   ? ' style="background:' + resolvedProcessColor + '"'
                   : '';
@@ -355,28 +384,36 @@ export class TerminalManagerViewProvider implements vscode.WebviewViewProvider {
               }
               break;
             }
-            case 'claudeStatus': {
-              if (t.claudeStatus) {
+            case 'details': {
+              if (t.details) {
                 const items = [];
-                for (const [key, value] of Object.entries(t.claudeStatus)) {
-                  const label = key.split('.').pop();
-                  let display = escapeHtml(value);
+                const styles = t.fieldStyles || {};
+                for (const [key, value] of Object.entries(t.details)) {
+                  const style = styles[key] || {};
+                  const label = style.label !== undefined ? style.label : key;
+                  const color = resolveColor(style.color);
 
-                  if (key === 'context_window.remaining_percentage') {
-                    const pct = parseFloat(value);
-                    const cls = pct < 20 ? 'context-low' : pct < 50 ? 'context-mid' : 'context-high';
-                    display = '<span class="' + cls + '">' + Math.round(pct) + '%</span>';
+                  let display = escapeHtml(value);
+                  if (color) {
+                    display = '<span style="color:' + color + '">' + display + '</span>';
                   }
 
+                  const iconHtml = style.icon
+                    ? '<span class="codicon codicon-' + escapeHtml(style.icon) + '" style="font-size:0.9em"></span> '
+                    : '';
+
+                  const labelHtml = label
+                    ? '<span class="detail-field-label">' + escapeHtml(label) + ':</span> '
+                    : '';
+
                   items.push(
-                    '<span class="claude-field">' +
-                      '<span class="claude-field-label">' + escapeHtml(label) + ':</span> ' +
-                      display +
+                    '<span class="detail-field">' +
+                      iconHtml + labelHtml + display +
                     '</span>'
                   );
                 }
                 if (items.length > 0) {
-                  parts.push('<div class="claude-status">' + items.join(' · ') + '</div>');
+                  parts.push('<div class="details-row">' + items.join(' · ') + '</div>');
                 }
               }
               break;
@@ -420,4 +457,12 @@ export class TerminalManagerViewProvider implements vscode.WebviewViewProvider {
   dispose(): void {
     this.disposables.forEach((d) => d.dispose());
   }
+}
+
+function resolveVar(value: string | undefined, vars: Record<string, string>): string | undefined {
+  if (value === undefined) return undefined;
+  if (value.startsWith('$')) {
+    return vars[value.slice(1)];
+  }
+  return value;
 }

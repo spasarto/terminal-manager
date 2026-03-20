@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import { execFile } from 'child_process';
 
 export interface TerminalInfo {
   terminal: vscode.Terminal;
@@ -142,6 +143,11 @@ export class TerminalTracker implements vscode.Disposable {
     // terminal.name is live but icon/color are only on creationOptions (a snapshot),
     // so icon/color changes made via the UI cannot be detected.
     this.pollInterval = setInterval(() => this.pollForChanges(), 2000);
+
+    // Detect already-running processes in restored terminals.
+    // Shell execution events only fire for new commands, so after a reload
+    // we probe child processes to find anything that was already running.
+    this.detectRunningProcesses();
   }
 
   private pollForChanges(): void {
@@ -174,9 +180,48 @@ export class TerminalTracker implements vscode.Disposable {
     });
   }
 
+  private async detectRunningProcesses(): Promise<void> {
+    let changed = false;
+    for (const [terminal, info] of this.terminals) {
+      const pid = await terminal.processId;
+      if (!pid) continue;
+      const childName = await this.getChildProcessName(pid);
+      if (childName && !info.isRunning) {
+        info.isRunning = true;
+        info.runningCommand = childName;
+        changed = true;
+      }
+    }
+    if (changed) {
+      this._onDidChange.fire();
+    }
+  }
+
+  private getChildProcessName(pid: number): Promise<string | undefined> {
+    return new Promise((resolve) => {
+      // Find child processes of the terminal shell, skipping the shell itself.
+      // Walk down the process tree to find the deepest meaningful process.
+      execFile('pgrep', ['-P', String(pid)], (err, stdout) => {
+        if (err || !stdout.trim()) {
+          resolve(undefined);
+          return;
+        }
+        const childPids = stdout.trim().split('\n');
+        // Get the command name of the first child
+        execFile('ps', ['-o', 'comm=', '-p', childPids[0]], (err2, stdout2) => {
+          if (err2 || !stdout2.trim()) {
+            resolve(undefined);
+            return;
+          }
+          resolve(stdout2.trim().split('/').pop());
+        });
+      });
+    });
+  }
+
   getTerminals(): TerminalInfo[] {
     const config = vscode.workspace.getConfiguration('terminalManager');
-    const styles = config.get<StyleRule[]>('styles', []);
+    const styles = config.get<StyleRule[]>('tabStyles', []);
     const processStyles = config.get<ProcessStyleRule[]>('processStyles', []);
 
     const result: TerminalInfo[] = [];

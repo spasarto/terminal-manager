@@ -35,7 +35,7 @@
                             "cwd",
                             "status",
                             "unread",
-                            "claudeStatus"
+                            "details"
                         ]
                     },
                     "default": [
@@ -44,19 +44,44 @@
                         "status",
                         "unread"
                     ],
-                    "description": "Ordered list of fields to display for each terminal. 'name' shows the terminal name with icon/color. 'cwd' shows the current directory name. 'status' shows running/idle badge. 'unread' shows unread badge. 'claudeStatus' shows Claude Code session info."
+                    "description": "Ordered list of fields to display for each terminal. 'name' shows the terminal name with icon/color. 'cwd' shows the current directory name. 'status' shows running/idle badge. 'unread' shows unread badge. 'details' shows variables from /tmp/terminal-manager/{pid}.json."
                 },
-                "terminalManager.claudeStatus.fields": {
+                "terminalManager.details.fields": {
                     "type": "array",
                     "items": {
                         "type": "string"
                     },
-                    "default": [
-                        "agent.name",
-                        "model.display_name",
-                        "context_window.remaining_percentage"
-                    ],
-                    "description": "Dotted field paths from the Claude Code statusline JSON to display. Available: agent.name, model.display_name, session_name, context_window.remaining_percentage, cost.total_duration_ms, cost.total_api_duration_ms, cost.total_lines_added, cost.total_lines_removed, workspace.current_dir, vim.mode"
+                    "default": [],
+                    "description": "Variable names to display from the terminal's /tmp/terminal-manager/{pid}.json file. Each entry is a top-level key in the JSON object."
+                },
+                "terminalManager.details.fieldStyles": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "match": {
+                                "type": "string",
+                                "description": "Regex pattern matched against the variable name."
+                            },
+                            "color": {
+                                "type": "string",
+                                "description": "Text color. Can be a CSS color, a theme color id (e.g. 'terminal.ansiGreen'), or a variable reference '$VAR_NAME' to read the color from another variable in the same terminal's data."
+                            },
+                            "icon": {
+                                "type": "string",
+                                "description": "Codicon id to display before the value. Can also be a variable reference '$VAR_NAME'."
+                            },
+                            "label": {
+                                "type": "string",
+                                "description": "Override the display label. Can also be a variable reference '$VAR_NAME'. Set to empty string to hide the label."
+                            }
+                        },
+                        "required": [
+                            "match"
+                        ]
+                    },
+                    "default": [],
+                    "description": "Style rules for detail fields. Values starting with '$' are resolved from the same terminal's variables (e.g. '$context_color' reads the 'context_color' variable)."
                 },
                 "terminalManager.processStyles": {
                     "type": "array",
@@ -83,7 +108,7 @@
                     "default": [],
                     "description": "Style rules for the running-process badge. Each rule has a 'match' regex tested against the process name, and optional 'icon' and 'color' overrides. First matching rule wins. If 'icon' is set, it also overrides the terminal tab icon while the process is running."
                 },
-                "terminalManager.styles": {
+                "terminalManager.tabStyles": {
                     "type": "array",
                     "items": {
                         "type": "object",

@@ -3,14 +3,12 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 
-export interface ClaudeStatus {
-  [key: string]: unknown;
-}
+export type TerminalVars = Record<string, string>;
 
-const STATUS_DIR = path.join(os.tmpdir(), 'terminal-manager-claude');
+const STATUS_DIR = path.join(os.tmpdir(), 'terminal-manager');
 
-export class ClaudeStatusWatcher implements vscode.Disposable {
-  private statuses: Map<number, ClaudeStatus> = new Map(); // pid -> status
+export class TerminalVarsWatcher implements vscode.Disposable {
+  private vars: Map<number, TerminalVars> = new Map(); // pid -> vars
   private watcher: fs.FSWatcher | undefined;
 
   private readonly _onDidChange = new vscode.EventEmitter<void>();
@@ -58,10 +56,17 @@ export class ClaudeStatusWatcher implements vscode.Disposable {
   private loadFile(filePath: string): void {
     try {
       const content = fs.readFileSync(filePath, 'utf-8');
-      const data = JSON.parse(content) as ClaudeStatus;
+      const data = JSON.parse(content);
       const pid = parseInt(path.basename(filePath, '.json'), 10);
-      if (!isNaN(pid)) {
-        this.statuses.set(pid, data);
+      if (!isNaN(pid) && typeof data === 'object' && data !== null) {
+        // Flatten to string values
+        const flat: TerminalVars = {};
+        for (const [key, value] of Object.entries(data)) {
+          if (value !== undefined && value !== null && value !== '') {
+            flat[key] = String(value);
+          }
+        }
+        this.vars.set(pid, flat);
         this._onDidChange.fire();
       }
     } catch {
@@ -69,21 +74,8 @@ export class ClaudeStatusWatcher implements vscode.Disposable {
     }
   }
 
-  getStatus(pid: number): ClaudeStatus | undefined {
-    return this.statuses.get(pid);
-  }
-
-  /** Resolve a dotted path like "context_window.remaining_percentage" from the status JSON */
-  static resolveField(status: ClaudeStatus, fieldPath: string): unknown {
-    const parts = fieldPath.split('.');
-    let current: unknown = status;
-    for (const part of parts) {
-      if (current === null || current === undefined || typeof current !== 'object') {
-        return undefined;
-      }
-      current = (current as Record<string, unknown>)[part];
-    }
-    return current;
+  getVars(pid: number): TerminalVars | undefined {
+    return this.vars.get(pid);
   }
 
   dispose(): void {
