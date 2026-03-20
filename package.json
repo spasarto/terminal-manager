@@ -3,6 +3,10 @@
     "displayName": "Terminal Manager",
     "description": "Enhanced terminal overview with status indicators",
     "icon": "assets/icon.png",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/spasarto/terminal-manager.git"
+    },
     "version": "0.0.3",
     "engines": {
         "vscode": "^1.93.0"
