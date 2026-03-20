@@ -1,100 +1,102 @@
 {
-  "name": "terminal-manager",
-  "displayName": "Terminal Manager",
-  "description": "Enhanced terminal overview with status indicators",
-  "version": "0.0.1",
-  "engines": {
-    "vscode": "^1.93.0"
-  },
-  "categories": [
-    "Other"
-  ],
-  "activationEvents": [
-    "onStartupFinished"
-  ],
-  "main": "./out/extension.js",
-  "contributes": {
-    "views": {
-      "explorer": [
-        {
-          "type": "webview",
-          "id": "terminalManager.view",
-          "name": "Terminal Manager"
-        }
-      ]
+    "name": "terminal-manager",
+    "displayName": "Terminal Manager",
+    "description": "Enhanced terminal overview with status indicators",
+    "version": "0.0.2",
+    "engines": {
+        "vscode": "^1.93.0"
     },
-    "configuration": {
-      "title": "Terminal Manager",
-      "properties": {
-        "terminalManager.fields": {
-          "type": "array",
-          "items": {
-            "type": "string",
-            "enum": [
-              "name",
-              "status",
-              "unread",
-              "claudeStatus"
+    "categories": [
+        "Other"
+    ],
+    "activationEvents": [
+        "onStartupFinished"
+    ],
+    "main": "./out/extension.js",
+    "contributes": {
+        "views": {
+            "explorer": [
+                {
+                    "type": "webview",
+                    "id": "terminalManager.view",
+                    "name": "Terminal Manager"
+                }
             ]
-          },
-          "default": [
-            "name",
-            "status",
-            "unread"
-          ],
-          "description": "Ordered list of fields to display for each terminal. 'name' shows the terminal name with icon/color. 'status' shows running/idle badge. 'unread' shows unread badge. 'claudeStatus' shows Claude Code session info."
         },
-        "terminalManager.claudeStatus.fields": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          },
-          "default": [
-            "agent.name",
-            "model.display_name",
-            "context_window.remaining_percentage"
-          ],
-          "description": "Dotted field paths from the Claude Code statusline JSON to display. Available: agent.name, model.display_name, session_name, context_window.remaining_percentage, cost.total_duration_ms, cost.total_api_duration_ms, cost.total_lines_added, cost.total_lines_removed, workspace.current_dir, vim.mode"
-        },
-        "terminalManager.styles": {
-          "type": "array",
-          "items": {
-            "type": "object",
+        "configuration": {
+            "title": "Terminal Manager",
             "properties": {
-              "match": {
-                "type": "string",
-                "description": "Regex pattern matched against the terminal name."
-              },
-              "icon": {
-                "type": "string",
-                "description": "Codicon id (e.g. 'terminal', 'play', 'rocket', 'bug', 'gear')."
-              },
-              "color": {
-                "type": "string",
-                "description": "Theme color id (e.g. 'terminal.ansiGreen', 'terminal.ansiRed')."
-              }
-            },
-            "required": [
-              "match"
-            ]
-          },
-          "default": [],
-          "description": "Style rules applied to terminals by name. Each rule has a 'match' regex, and optional 'icon' and 'color' overrides. First matching rule wins."
+                "terminalManager.fields": {
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "enum": [
+                            "name",
+                            "cwd",
+                            "status",
+                            "unread",
+                            "claudeStatus"
+                        ]
+                    },
+                    "default": [
+                        "name",
+                        "cwd",
+                        "status",
+                        "unread"
+                    ],
+                    "description": "Ordered list of fields to display for each terminal. 'name' shows the terminal name with icon/color. 'cwd' shows the current directory name. 'status' shows running/idle badge. 'unread' shows unread badge. 'claudeStatus' shows Claude Code session info."
+                },
+                "terminalManager.claudeStatus.fields": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "default": [
+                        "agent.name",
+                        "model.display_name",
+                        "context_window.remaining_percentage"
+                    ],
+                    "description": "Dotted field paths from the Claude Code statusline JSON to display. Available: agent.name, model.display_name, session_name, context_window.remaining_percentage, cost.total_duration_ms, cost.total_api_duration_ms, cost.total_lines_added, cost.total_lines_removed, workspace.current_dir, vim.mode"
+                },
+                "terminalManager.styles": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "match": {
+                                "type": "string",
+                                "description": "Regex pattern matched against the terminal name."
+                            },
+                            "icon": {
+                                "type": "string",
+                                "description": "Codicon id (e.g. 'terminal', 'play', 'rocket', 'bug', 'gear')."
+                            },
+                            "color": {
+                                "type": "string",
+                                "description": "Theme color id (e.g. 'terminal.ansiGreen', 'terminal.ansiRed')."
+                            }
+                        },
+                        "required": [
+                            "match"
+                        ]
+                    },
+                    "default": [],
+                    "description": "Style rules applied to terminals by name. Each rule has a 'match' regex, and optional 'icon' and 'color' overrides. First matching rule wins."
+                }
+            }
         }
-      }
+    },
+    "scripts": {
+        "vscode:prepublish": "npm run compile",
+        "compile": "tsc -p ./",
+        "watch": "tsc -watch -p ./"
+    },
+    "devDependencies": {
+        "@types/node": "^20.0.0",
+        "@types/vscode": "^1.93.0",
+        "typescript": "^5.5.0"
+    },
+    "dependencies": {
+        "@vscode/codicons": "^0.0.45"
     }
-  },
-  "scripts": {
-    "vscode:prepublish": "npm run compile",
-    "compile": "tsc -p ./",
-    "watch": "tsc -watch -p ./"
-  },
-  "devDependencies": {
-    "@types/node": "^20.0.0",
-    "@types/vscode": "^1.93.0",
-    "typescript": "^5.5.0"
-  },
-  "dependencies": {
-    "@vscode/codicons": "^0.0.45"
-  }
 }

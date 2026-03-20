@@ -111,6 +111,9 @@ export class TerminalManagerViewProvider implements vscode.WebviewViewProvider {
           }
         }
 
+        const cwdUri = info.terminal.shellIntegration?.cwd;
+        const cwd = cwdUri ? cwdUri.fsPath.split('/').pop() || '' : '';
+
         return {
           name: info.name,
           isRunning: info.isRunning,
@@ -118,6 +121,7 @@ export class TerminalManagerViewProvider implements vscode.WebviewViewProvider {
           isActive: info.terminal === activeTerminal,
           iconId: info.iconId,
           color: info.color,
+          cwd,
           claudeStatus,
         };
       }),
@@ -310,6 +314,17 @@ export class TerminalManagerViewProvider implements vscode.WebviewViewProvider {
                   '<button class="kill-btn" onclick="event.stopPropagation(); killTerminal(' + i + ')" title="Kill terminal">\\u2715</button>' +
                 '</div>'
               );
+              break;
+            }
+            case 'cwd': {
+              if (t.cwd) {
+                secondaryParts.push(
+                  '<span class="claude-field">' +
+                    '<span class="codicon codicon-folder" style="font-size:0.9em"></span> ' +
+                    escapeHtml(t.cwd) +
+                  '</span>'
+                );
+              }
               break;
             }
             case 'status': {

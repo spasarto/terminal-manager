@@ -23,6 +23,10 @@ export class TerminalTracker implements vscode.Disposable {
   private disposables: vscode.Disposable[] = [];
   private activeTerminal: vscode.Terminal | undefined;
   private pollInterval: ReturnType<typeof setInterval> | undefined;
+  private idleTimers: Map<vscode.Terminal, ReturnType<typeof setTimeout>> = new Map();
+
+  /** How long to wait after a command ends before marking idle (ms) */
+  private static readonly IDLE_DEBOUNCE_MS = 5000;
 
   private readonly _onDidChange = new vscode.EventEmitter<void>();
   readonly onDidChange = this._onDidChange.event;
@@ -41,6 +45,11 @@ export class TerminalTracker implements vscode.Disposable {
         this._onDidChange.fire();
       }),
       vscode.window.onDidCloseTerminal((t) => {
+        const timer = this.idleTimers.get(t);
+        if (timer) {
+          clearTimeout(timer);
+          this.idleTimers.delete(t);
+        }
         this.terminals.delete(t);
         this._onDidChange.fire();
       }),
@@ -58,20 +67,38 @@ export class TerminalTracker implements vscode.Disposable {
         this._onDidChange.fire();
       }),
 
-      // Shell integration for running/idle detection
+      // Shell integration for running/idle detection.
+      // Idle transition is debounced so that gaps between sequential
+      // sub-commands (e.g. Claude Code tool calls) don't flicker to idle.
       vscode.window.onDidStartTerminalShellExecution((e) => {
+        // Cancel any pending idle transition
+        const timer = this.idleTimers.get(e.terminal);
+        if (timer) {
+          clearTimeout(timer);
+          this.idleTimers.delete(e.terminal);
+        }
         const info = this.terminals.get(e.terminal);
-        if (info) {
+        if (info && !info.isRunning) {
           info.isRunning = true;
           this._onDidChange.fire();
         }
       }),
       vscode.window.onDidEndTerminalShellExecution((e) => {
-        const info = this.terminals.get(e.terminal);
-        if (info) {
-          info.isRunning = false;
-          this._onDidChange.fire();
+        // Clear any existing timer first
+        const existing = this.idleTimers.get(e.terminal);
+        if (existing) {
+          clearTimeout(existing);
         }
+        // Debounce the idle transition
+        const timer = setTimeout(() => {
+          this.idleTimers.delete(e.terminal);
+          const info = this.terminals.get(e.terminal);
+          if (info && info.isRunning) {
+            info.isRunning = false;
+            this._onDidChange.fire();
+          }
+        }, TerminalTracker.IDLE_DEBOUNCE_MS);
+        this.idleTimers.set(e.terminal, timer);
       }),
 
       // Terminal name changes
@@ -178,6 +205,10 @@ export class TerminalTracker implements vscode.Disposable {
     if (this.pollInterval) {
       clearInterval(this.pollInterval);
     }
+    for (const timer of this.idleTimers.values()) {
+      clearTimeout(timer);
+    }
+    this.idleTimers.clear();
     this.disposables.forEach((d) => d.dispose());
     this._onDidChange.dispose();
   }
