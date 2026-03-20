@@ -104,14 +104,29 @@ export class TerminalTracker implements vscode.Disposable {
           clearTimeout(existing);
         }
         // Debounce the idle transition
-        const timer = setTimeout(() => {
+        const timer = setTimeout(async () => {
           this.idleTimers.delete(e.terminal);
           const info = this.terminals.get(e.terminal);
-          if (info?.isRunning) {
-            info.isRunning = false;
-            info.runningCommand = "";
-            this._onDidChange.fire();
+          if (!info?.isRunning) return;
+
+          // Check if a child process is still running (e.g. interactive REPL)
+          const pid = await e.terminal.processId;
+          if (pid) {
+            const childName = await this.getChildProcessName(pid);
+            if (childName) {
+              // Keep existing command name if we have one (matches user's processStyles regex),
+              // otherwise use the detected name (e.g. after a window reload)
+              if (!info.runningCommand) {
+                info.runningCommand = childName;
+              }
+              this._onDidChange.fire();
+              return;
+            }
           }
+
+          info.isRunning = false;
+          info.runningCommand = "";
+          this._onDidChange.fire();
         }, TerminalTracker.IDLE_DEBOUNCE_MS);
         this.idleTimers.set(e.terminal, timer);
       }),

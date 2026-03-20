@@ -2,6 +2,8 @@
 
 An enhanced terminal overview panel for VS Code. See all your terminals at a glance with running process names, status badges, working directories, and custom details powered by external scripts.
 
+![Example](assets/example.png)
+
 ## Features
 
 - **Terminal list** in the Explorer sidebar with name, icon, and color
@@ -44,6 +46,8 @@ Ordered list of fields to display for each terminal. Available fields:
 
 Style rules applied to terminals by name. Each rule has a `match` regex tested against the terminal name. First matching rule wins.
 
+![Example](assets/example1.png)
+
 | Property | Type | Description |
 |----------|------|-------------|
 | `match` | `string` | **Required.** Regex pattern matched against the terminal name |
@@ -64,6 +68,8 @@ Style rules applied to terminals by name. Each rule has a `match` regex tested a
 Style rules for the running-process status badge. Each rule has a `match` regex tested against the process name. First matching rule wins.
 
 When a terminal is using the default icon/color (no `tabStyles` match and no custom `creationOptions`), the process style's `icon` and `color` will also override the terminal's tab icon and color while the process is running.
+
+![Example](assets/example2.png)
 
 | Property | Type | Description |
 |----------|------|-------------|
@@ -99,6 +105,8 @@ Variable names to display when the `details` field is enabled. Each entry is a t
 Style rules for detail fields. Each rule has a `match` regex tested against the variable name. First matching rule wins.
 
 Values starting with `$` are resolved from the same terminal's variables, allowing the data source to dynamically control styling.
+
+![Example](assets/example3.png)
 
 | Property | Type | Description |
 |----------|------|-------------|
