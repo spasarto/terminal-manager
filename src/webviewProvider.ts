@@ -72,6 +72,31 @@ export class TerminalManagerViewProvider implements vscode.WebviewViewProvider {
           }
           break;
         }
+        case "renameTerminal": {
+          const terminals = this.tracker.getTerminals();
+          const info = terminals[message.index];
+          if (info) {
+            info.terminal.show();
+            vscode.commands.executeCommand("workbench.action.terminal.rename");
+          }
+          break;
+        }
+        case "customizeTabStyle": {
+          const terminals = this.tracker.getTerminals();
+          const info = terminals[message.index];
+          if (info) {
+            this.addStyleRule("tabStyles", info.name);
+          }
+          break;
+        }
+        case "customizeProcessStyle": {
+          const terminals = this.tracker.getTerminals();
+          const info = terminals[message.index];
+          if (info?.runningCommand) {
+            this.addStyleRule("processStyles", info.runningCommand);
+          }
+          break;
+        }
       }
     });
   }
@@ -290,11 +315,45 @@ export class TerminalManagerViewProvider implements vscode.WebviewViewProvider {
       text-align: center;
       opacity: 0.6;
     }
+    .context-menu {
+      display: none;
+      position: fixed;
+      background: var(--vscode-menu-background);
+      color: var(--vscode-menu-foreground);
+      border: 1px solid var(--vscode-menu-border);
+      border-radius: 4px;
+      padding: 4px 0;
+      min-width: 120px;
+      z-index: 1000;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    }
+    .context-menu-item {
+      padding: 4px 20px;
+      cursor: pointer;
+      font-size: var(--vscode-font-size);
+    }
+    .context-menu-item:hover {
+      background: var(--vscode-menu-selectionBackground);
+      color: var(--vscode-menu-selectionForeground);
+    }
+    .context-menu-separator {
+      height: 1px;
+      background: var(--vscode-menu-separatorBackground);
+      margin: 4px 0;
+    }
   </style>
 </head>
 <body>
   <div class="terminal-list" id="list">
     <div class="empty-state">No terminals open</div>
+  </div>
+  <div class="context-menu" id="contextMenu">
+    <div class="context-menu-item" data-action="rename">Rename Terminal</div>
+    <div class="context-menu-separator"></div>
+    <div class="context-menu-item" data-action="customizeTab">Customize Tab Style...</div>
+    <div class="context-menu-item" data-action="customizeProcess" id="customizeProcessItem">Customize Process Style...</div>
+    <div class="context-menu-separator"></div>
+    <div class="context-menu-item" data-action="kill">Kill Terminal</div>
   </div>
   <script>
     const vscode = acquireVsCodeApi();
@@ -325,6 +384,7 @@ export class TerminalManagerViewProvider implements vscode.WebviewViewProvider {
     });
 
     function renderTerminals(terminals, fields) {
+      lastTerminals = terminals;
       if (terminals.length === 0) {
         list.innerHTML = '<div class="empty-state">No terminals open</div>';
         return;
@@ -427,6 +487,7 @@ export class TerminalManagerViewProvider implements vscode.WebviewViewProvider {
 
         return '<div class="terminal-item ' + (t.isActive ? 'active' : '') + '"' +
           ' onclick="selectTerminal(' + i + ')"' +
+          ' oncontextmenu="showContextMenu(event, ' + i + ')"' +
           ' title="' + escapeHtml(t.name) + '">' +
           parts.join('') +
           '</div>';
@@ -447,11 +508,94 @@ export class TerminalManagerViewProvider implements vscode.WebviewViewProvider {
       return div.innerHTML;
     }
 
+    // Context menu
+    const contextMenu = document.getElementById('contextMenu');
+    const customizeProcessItem = document.getElementById('customizeProcessItem');
+    let contextMenuIndex = -1;
+    let lastTerminals = [];
+
+    function showContextMenu(event, index) {
+      event.preventDefault();
+      event.stopPropagation();
+      contextMenuIndex = index;
+
+      // Show/hide process style option based on whether a process is running
+      const t = lastTerminals[index];
+      customizeProcessItem.style.display = (t && t.runningCommand) ? 'block' : 'none';
+
+      contextMenu.style.display = 'block';
+      contextMenu.style.left = event.clientX + 'px';
+      contextMenu.style.top = event.clientY + 'px';
+
+      // Keep menu within viewport
+      const rect = contextMenu.getBoundingClientRect();
+      if (rect.right > window.innerWidth) {
+        contextMenu.style.left = (window.innerWidth - rect.width) + 'px';
+      }
+      if (rect.bottom > window.innerHeight) {
+        contextMenu.style.top = (window.innerHeight - rect.height) + 'px';
+      }
+    }
+
+    function hideContextMenu() {
+      contextMenu.style.display = 'none';
+      contextMenuIndex = -1;
+    }
+
+    document.addEventListener('click', hideContextMenu);
+    document.addEventListener('contextmenu', (e) => {
+      if (!e.target.closest('.terminal-item')) {
+        hideContextMenu();
+      }
+    });
+
+    contextMenu.addEventListener('click', (e) => {
+      const item = e.target.closest('.context-menu-item');
+      if (!item || contextMenuIndex < 0) return;
+
+      const action = item.dataset.action;
+      if (action === 'rename') {
+        vscode.postMessage({ type: 'renameTerminal', index: contextMenuIndex });
+      } else if (action === 'customizeTab') {
+        vscode.postMessage({ type: 'customizeTabStyle', index: contextMenuIndex });
+      } else if (action === 'customizeProcess') {
+        vscode.postMessage({ type: 'customizeProcessStyle', index: contextMenuIndex });
+      } else if (action === 'kill') {
+        vscode.postMessage({ type: 'killTerminal', index: contextMenuIndex });
+      }
+      hideContextMenu();
+    });
+
     // Signal to the extension that the webview is ready
     vscode.postMessage({ type: 'ready' });
   </script>
 </body>
 </html>`;
+  }
+
+  private async addStyleRule(setting: "tabStyles" | "processStyles", matchValue: string): Promise<void> {
+    const config = vscode.workspace.getConfiguration("terminalManager");
+    const current = config.get<Array<Record<string, string>>>(setting, []);
+
+    // Don't add if a rule already matches this value
+    const alreadyExists = current.some((rule) => {
+      try {
+        return new RegExp(rule.match).test(matchValue);
+      } catch {
+        return false;
+      }
+    });
+
+    if (!alreadyExists) {
+      // Escape regex special characters for a literal match
+      const escaped = matchValue.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const newRule = { match: escaped, icon: "", color: "" };
+      await config.update(setting, [...current, newRule], vscode.ConfigurationTarget.Global);
+    }
+
+    await vscode.commands.executeCommand("workbench.action.openSettingsJson", {
+      revealSetting: { key: `terminalManager.${setting}` },
+    });
   }
 
   dispose(): void {

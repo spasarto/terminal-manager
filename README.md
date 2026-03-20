@@ -13,6 +13,19 @@ An enhanced terminal overview panel for VS Code. See all your terminals at a gla
 - **Custom details** — display arbitrary key-value data from external scripts (e.g. Claude Code session info, model name, context usage)
 - **Dynamic styling** — detail field colors and icons can be driven by the data itself via variable references
 
+## Context Menu
+
+Right-click any terminal in the panel for quick actions:
+
+![Context menu](assets/example4.png)
+
+- **Rename Terminal** — opens VS Code's built-in rename dialog
+- **Customize Tab Style...** — adds a `tabStyles` rule for the terminal's name and opens your settings JSON
+- **Customize Process Style...** — adds a `processStyles` rule for the currently running process (only shown when a process is running)
+- **Kill Terminal** — terminates the terminal
+
+The customize options pre-fill a new rule with the terminal or process name as the match pattern, with empty `icon` and `color` fields ready for you to fill in.
+
 ## Requirements
 
 - VS Code 1.93.0 or later
