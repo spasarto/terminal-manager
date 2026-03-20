@@ -7,13 +7,11 @@ An enhanced terminal overview panel for VS Code. See all your terminals at a gla
 ## Features
 
 - **Terminal list** in the Explorer sidebar with name, icon, and color
-- **Running process detection** — shows the name of the currently running command (e.g. `node`, `python`, `claude`) instead of a generic "running" label
 - **Status badges** — running/idle indicators with customizable colors and icons per process
 - **Unread detection** — highlights terminals that produced output while in the background
 - **Working directory** — shows the current directory for each terminal via shell integration
 - **Custom details** — display arbitrary key-value data from external scripts (e.g. Claude Code session info, model name, context usage)
 - **Dynamic styling** — detail field colors and icons can be driven by the data itself via variable references
-- **Process restoration** — detects already-running processes after a window reload
 
 ## Requirements
 

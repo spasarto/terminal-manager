@@ -1,6 +1,7 @@
 {
     "name": "terminal-manager",
     "displayName": "Terminal Manager",
+    "publisher": "spasarto",
     "description": "Enhanced terminal overview with status indicators",
     "icon": "assets/icon.png",
     "repository": {
