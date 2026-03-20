@@ -1,7 +1,7 @@
-import * as vscode from 'vscode';
-import { TerminalTracker } from './terminalTracker';
-import { TerminalManagerViewProvider } from './webviewProvider';
-import { TerminalVarsWatcher } from './terminalVarsWatcher';
+import * as vscode from "vscode";
+import { TerminalTracker } from "./terminalTracker";
+import { TerminalVarsWatcher } from "./terminalVarsWatcher";
+import { TerminalManagerViewProvider } from "./webviewProvider";
 
 export function activate(context: vscode.ExtensionContext) {
   const tracker = new TerminalTracker();
@@ -12,10 +12,7 @@ export function activate(context: vscode.ExtensionContext) {
     tracker,
     varsWatcher,
     provider,
-    vscode.window.registerWebviewViewProvider(
-      TerminalManagerViewProvider.viewType,
-      provider,
-    ),
+    vscode.window.registerWebviewViewProvider(TerminalManagerViewProvider.viewType, provider),
   );
 }
 

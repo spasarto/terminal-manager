@@ -1,6 +1,6 @@
-import * as vscode from 'vscode';
-import { TerminalTracker, TerminalInfo } from './terminalTracker';
-import { TerminalVarsWatcher } from './terminalVarsWatcher';
+import * as vscode from "vscode";
+import type { TerminalTracker } from "./terminalTracker";
+import type { TerminalVarsWatcher } from "./terminalVarsWatcher";
 
 interface FieldStyleRule {
   match: string;
@@ -10,7 +10,7 @@ interface FieldStyleRule {
 }
 
 export class TerminalManagerViewProvider implements vscode.WebviewViewProvider {
-  public static readonly viewType = 'terminalManager.view';
+  public static readonly viewType = "terminalManager.view";
 
   private view?: vscode.WebviewView;
   private disposables: vscode.Disposable[] = [];
@@ -24,7 +24,7 @@ export class TerminalManagerViewProvider implements vscode.WebviewViewProvider {
       tracker.onDidChange(() => this.updateView()),
       varsWatcher.onDidChange(() => this.updateView()),
       vscode.workspace.onDidChangeConfiguration((e) => {
-        if (e.affectsConfiguration('terminalManager')) {
+        if (e.affectsConfiguration("terminalManager")) {
           this.updateView();
         }
       }),
@@ -45,18 +45,18 @@ export class TerminalManagerViewProvider implements vscode.WebviewViewProvider {
     };
 
     const codiconUri = webviewView.webview.asWebviewUri(
-      vscode.Uri.joinPath(extensionUri, 'node_modules', '@vscode', 'codicons', 'dist', 'codicon.css'),
+      vscode.Uri.joinPath(extensionUri, "node_modules", "@vscode", "codicons", "dist", "codicon.css"),
     );
 
     webviewView.webview.html = this.getHtml(codiconUri);
 
     webviewView.webview.onDidReceiveMessage((message) => {
       switch (message.type) {
-        case 'ready': {
+        case "ready": {
           this.updateView();
           break;
         }
-        case 'selectTerminal': {
+        case "selectTerminal": {
           const terminals = this.tracker.getTerminals();
           const info = terminals[message.index];
           if (info) {
@@ -64,7 +64,7 @@ export class TerminalManagerViewProvider implements vscode.WebviewViewProvider {
           }
           break;
         }
-        case 'killTerminal': {
+        case "killTerminal": {
           const terminals = this.tracker.getTerminals();
           const info = terminals[message.index];
           if (info) {
@@ -77,18 +77,18 @@ export class TerminalManagerViewProvider implements vscode.WebviewViewProvider {
   }
 
   private getFields(): string[] {
-    const config = vscode.workspace.getConfiguration('terminalManager');
-    return config.get<string[]>('fields', ['name', 'status', 'unread']);
+    const config = vscode.workspace.getConfiguration("terminalManager");
+    return config.get<string[]>("fields", ["name", "status", "unread"]);
   }
 
   private getDetailsFields(): string[] {
-    const config = vscode.workspace.getConfiguration('terminalManager');
-    return config.get<string[]>('details.fields', []);
+    const config = vscode.workspace.getConfiguration("terminalManager");
+    return config.get<string[]>("details.fields", []);
   }
 
   private getFieldStyles(): FieldStyleRule[] {
-    const config = vscode.workspace.getConfiguration('terminalManager');
-    return config.get<FieldStyleRule[]>('details.fieldStyles', []);
+    const config = vscode.workspace.getConfiguration("terminalManager");
+    return config.get<FieldStyleRule[]>("details.fieldStyles", []);
   }
 
   private async updateView(): Promise<void> {
@@ -105,7 +105,7 @@ export class TerminalManagerViewProvider implements vscode.WebviewViewProvider {
         let details: Record<string, string> | undefined;
         let resolvedFieldStyles: Record<string, { color?: string; icon?: string; label?: string }> | undefined;
 
-        if (fields.includes('details') && detailsFields.length > 0) {
+        if (fields.includes("details") && detailsFields.length > 0) {
           const pid = await info.terminal.processId;
           if (pid) {
             const vars = this.varsWatcher.getVars(pid);
@@ -142,7 +142,7 @@ export class TerminalManagerViewProvider implements vscode.WebviewViewProvider {
         }
 
         const cwdUri = info.terminal.shellIntegration?.cwd;
-        const cwd = cwdUri ? cwdUri.fsPath.split('/').pop() || '' : '';
+        const cwd = cwdUri ? cwdUri.fsPath.split("/").pop() || "" : "";
 
         return {
           name: info.name,
@@ -161,7 +161,7 @@ export class TerminalManagerViewProvider implements vscode.WebviewViewProvider {
       }),
     );
 
-    this.view.webview.postMessage({ type: 'update', terminals: data, fields });
+    this.view.webview.postMessage({ type: "update", terminals: data, fields });
   }
 
   private getHtml(codiconUri: vscode.Uri): string {
@@ -455,13 +455,13 @@ export class TerminalManagerViewProvider implements vscode.WebviewViewProvider {
   }
 
   dispose(): void {
-    this.disposables.forEach((d) => d.dispose());
+    for (const d of this.disposables) d.dispose();
   }
 }
 
 function resolveVar(value: string | undefined, vars: Record<string, string>): string | undefined {
   if (value === undefined) return undefined;
-  if (value.startsWith('$')) {
+  if (value.startsWith("$")) {
     return vars[value.slice(1)];
   }
   return value;

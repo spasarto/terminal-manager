@@ -139,9 +139,13 @@
     "scripts": {
         "vscode:prepublish": "npm run compile",
         "compile": "tsc -p ./",
-        "watch": "tsc -watch -p ./"
+        "watch": "tsc -watch -p ./",
+        "lint": "biome check src/",
+        "format": "biome format --write src/",
+        "typecheck": "tsc --noEmit"
     },
     "devDependencies": {
+        "@biomejs/biome": "^2.4.8",
         "@types/node": "^20.0.0",
         "@types/vscode": "^1.93.0",
         "typescript": "^5.5.0"

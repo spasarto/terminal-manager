@@ -1,11 +1,11 @@
-import * as vscode from 'vscode';
-import * as fs from 'fs';
-import * as path from 'path';
-import * as os from 'os';
+import * as fs from "node:fs";
+import * as os from "node:os";
+import * as path from "node:path";
+import * as vscode from "vscode";
 
 export type TerminalVars = Record<string, string>;
 
-const STATUS_DIR = path.join(os.tmpdir(), 'terminal-manager');
+const STATUS_DIR = path.join(os.tmpdir(), "terminal-manager");
 
 export class TerminalVarsWatcher implements vscode.Disposable {
   private vars: Map<number, TerminalVars> = new Map(); // pid -> vars
@@ -31,7 +31,7 @@ export class TerminalVarsWatcher implements vscode.Disposable {
   private startWatching(): void {
     try {
       this.watcher = fs.watch(STATUS_DIR, (_event, filename) => {
-        if (filename && filename.endsWith('.json')) {
+        if (filename?.endsWith(".json")) {
           this.loadFile(path.join(STATUS_DIR, filename));
         }
       });
@@ -44,7 +44,7 @@ export class TerminalVarsWatcher implements vscode.Disposable {
     try {
       const files = fs.readdirSync(STATUS_DIR);
       for (const file of files) {
-        if (file.endsWith('.json')) {
+        if (file.endsWith(".json")) {
           this.loadFile(path.join(STATUS_DIR, file));
         }
       }
@@ -55,14 +55,14 @@ export class TerminalVarsWatcher implements vscode.Disposable {
 
   private loadFile(filePath: string): void {
     try {
-      const content = fs.readFileSync(filePath, 'utf-8');
+      const content = fs.readFileSync(filePath, "utf-8");
       const data = JSON.parse(content);
-      const pid = parseInt(path.basename(filePath, '.json'), 10);
-      if (!isNaN(pid) && typeof data === 'object' && data !== null) {
+      const pid = parseInt(path.basename(filePath, ".json"), 10);
+      if (!Number.isNaN(pid) && typeof data === "object" && data !== null) {
         // Flatten to string values
         const flat: TerminalVars = {};
         for (const [key, value] of Object.entries(data)) {
-          if (value !== undefined && value !== null && value !== '') {
+          if (value !== undefined && value !== null && value !== "") {
             flat[key] = String(value);
           }
         }
