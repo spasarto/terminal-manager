@@ -139,7 +139,8 @@ Values starting with `$` are resolved from the same terminal's variables, allowi
 Enable system notifications when a background terminal needs attention. Notifications are triggered by:
 
 1. **Shell execution events** — when a command finishes in a non-active terminal
-2. **JSON vars** — when a `notification` field appears in the terminal's `/tmp/terminal-manager/{pid}.json` data file
+2. **Idle detection** — when a terminal's vars JSON stops being updated (e.g. Claude finished processing), a notification fires after a 10-second debounce
+3. **Explicit notifications** — when a `notification` field is written to the terminal's `/tmp/terminal-manager/{pid}.json` data file (e.g. by a Claude Code `Notification` hook for permission prompts)
 
 **Default:** `false`
 
@@ -151,9 +152,58 @@ When a notification fires, it includes a **Show** button to jump directly to the
 
 #### Claude Code integration
 
-The statusline script can track Claude's context window usage between invocations. When the usage stops changing, Claude has finished processing and a `notification` field is written to the vars JSON, triggering a VS Code notification for background terminals.
+To get notifications when Claude Code needs your attention (permission prompts, finished processing), add two hooks to your `~/.claude/settings.json`:
 
-This happens automatically if you use the statusline script from the example below — no extra configuration needed beyond enabling the setting.
+1. **Statusline hook** — writes session data to the vars JSON. The extension detects when updates stop (Claude is idle) and fires a "Claude is done" notification.
+
+2. **Notification hook** — fires immediately when Claude needs permission, writing a `notification` field to the vars JSON.
+
+```json
+{
+  "statusLine": {
+    "type": "command",
+    "command": "/bin/bash ~/.claude/notification-hook.sh"
+  },
+  "hooks": {
+    "Notification": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/bin/bash ~/.claude/notification-hook.sh"
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+**`~/.claude/notification-hook.sh`** — writes the notification message to the vars JSON:
+
+```bash
+#!/bin/bash
+input=$(cat)
+
+dir="${TMPDIR:-/tmp}/terminal-manager"
+pid=$PPID
+file="$dir/$pid.json"
+
+message=$(echo "$input" | jq -r '.message // "Claude needs your attention"')
+# Append timestamp so the extension detects each as a new transition
+message="$message @$(date +%s)"
+
+if [ -f "$file" ]; then
+  vars=$(cat "$file")
+else
+  mkdir -p "$dir"
+  vars="{}"
+fi
+
+echo "$vars" | jq --arg v "$message" '. + {notification: $v}' > "$file"
+```
+
+The statusline script from the example below handles writing the vars JSON. It also preserves any `notification` field set by the Notification hook so the extension can pick it up before the next statusline update clears it.
 
 ---
 
