@@ -8,7 +8,7 @@ An enhanced terminal overview panel for VS Code. See all your terminals at a gla
 
 - **Terminal list** in the Explorer sidebar with name, icon, and color
 - **Status badges** — running/idle indicators with customizable colors and icons per process
-- **Unread detection** — highlights terminals that produced output while in the background
+- **Unread detection** — highlights terminals that produced output while in the background, with optional system notifications
 - **Working directory** — shows the current directory for each terminal via shell integration
 - **Custom details** — display arbitrary key-value data from external scripts (e.g. Claude Code session info, model name, context usage)
 - **Dynamic styling** — detail field colors and icons can be driven by the data itself via variable references
@@ -133,6 +133,29 @@ Values starting with `$` are resolved from the same terminal's variables, allowi
   { "match": "lines_removed", "color": "$lines_removed_color", "label": "" }
 ]
 ```
+
+### `terminalManager.notifications`
+
+Enable system notifications when a background terminal needs attention. Notifications are triggered by:
+
+1. **Shell execution events** — when a command finishes in a non-active terminal
+2. **JSON vars** — when a `notification` field appears in the terminal's `/tmp/terminal-manager/{pid}.json` data file
+
+**Default:** `false`
+
+```json
+"terminalManager.notifications": true
+```
+
+When a notification fires, it includes a **Show** button to jump directly to the terminal.
+
+#### Claude Code integration
+
+The statusline script can track Claude's context window usage between invocations. When the usage stops changing, Claude has finished processing and a `notification` field is written to the vars JSON, triggering a VS Code notification for background terminals.
+
+This happens automatically if you use the statusline script from the example below — no extra configuration needed beyond enabling the setting.
+
+---
 
 ## Custom Details via External Scripts
 

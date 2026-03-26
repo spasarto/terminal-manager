@@ -7,12 +7,21 @@ export type TerminalVars = Record<string, string>;
 
 const STATUS_DIR = path.join(os.tmpdir(), "terminal-manager");
 
+export interface NotificationEvent {
+  pid: number;
+  message: string;
+}
+
 export class TerminalVarsWatcher implements vscode.Disposable {
   private vars: Map<number, TerminalVars> = new Map(); // pid -> vars
+  private previousNotifications: Map<number, string> = new Map();
   private watcher: fs.FSWatcher | undefined;
 
   private readonly _onDidChange = new vscode.EventEmitter<void>();
   readonly onDidChange = this._onDidChange.event;
+
+  private readonly _onDidRequestNotification = new vscode.EventEmitter<NotificationEvent>();
+  readonly onDidRequestNotification = this._onDidRequestNotification.event;
 
   constructor() {
     this.ensureDir();
@@ -67,6 +76,15 @@ export class TerminalVarsWatcher implements vscode.Disposable {
           }
         }
         this.vars.set(pid, flat);
+
+        // Detect notification transitions (empty → non-empty)
+        const notification = flat.notification || "";
+        const prev = this.previousNotifications.get(pid) || "";
+        if (notification && notification !== prev) {
+          this._onDidRequestNotification.fire({ pid, message: notification });
+        }
+        this.previousNotifications.set(pid, notification);
+
         this._onDidChange.fire();
       }
     } catch {
@@ -81,6 +99,7 @@ export class TerminalVarsWatcher implements vscode.Disposable {
   dispose(): void {
     this.watcher?.close();
     this._onDidChange.dispose();
+    this._onDidRequestNotification.dispose();
   }
 
   static get statusDir(): string {

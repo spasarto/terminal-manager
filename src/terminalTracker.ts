@@ -152,6 +152,20 @@ export class TerminalTracker implements vscode.Disposable {
           info.hasUnread = true;
           info.lastOutputAt = Date.now();
           this._onDidChange.fire();
+
+          const config = vscode.workspace.getConfiguration("terminalManager");
+          if (config.get<boolean>("notifications", false)) {
+            vscode.window
+              .showInformationMessage(
+                `Terminal "${info.name}" has new output`,
+                "Show",
+              )
+              .then((choice) => {
+                if (choice === "Show") {
+                  e.terminal.show();
+                }
+              });
+          }
         }
       }),
     );
