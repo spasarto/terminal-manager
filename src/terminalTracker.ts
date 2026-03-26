@@ -1,5 +1,6 @@
 import { execFile } from "node:child_process";
 import * as vscode from "vscode";
+import { isEnabled, notify } from "./notify";
 
 export interface TerminalInfo {
   terminal: vscode.Terminal;
@@ -153,18 +154,8 @@ export class TerminalTracker implements vscode.Disposable {
           info.lastOutputAt = Date.now();
           this._onDidChange.fire();
 
-          const config = vscode.workspace.getConfiguration("terminalManager");
-          if (config.get<boolean>("notifications", false)) {
-            vscode.window
-              .showInformationMessage(
-                `Terminal "${info.name}" has new output`,
-                "Show",
-              )
-              .then((choice) => {
-                if (choice === "Show") {
-                  e.terminal.show();
-                }
-              });
+          if (isEnabled()) {
+            notify("has new output", e.terminal);
           }
         }
       }),

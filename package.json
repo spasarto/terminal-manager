@@ -115,9 +115,21 @@
                     "description": "Style rules for the running-process badge. Each rule has a 'match' regex tested against the process name, and optional 'icon' and 'color' overrides. First matching rule wins. If 'icon' is set, it also overrides the terminal tab icon while the process is running."
                 },
                 "terminalManager.notifications": {
-                    "type": "boolean",
-                    "default": false,
-                    "description": "Show a system notification when a background terminal has new output."
+                    "type": "string",
+                    "enum": [
+                        "off",
+                        "vscode",
+                        "system",
+                        "both"
+                    ],
+                    "default": "off",
+                    "enumDescriptions": [
+                        "No notifications",
+                        "VS Code notifications inside the editor with a Show button",
+                        "OS-level notifications via terminal-notifier (macOS), notify-send (Linux)",
+                        "Both VS Code and OS-level notifications"
+                    ],
+                    "description": "Notification style when a background terminal has new output or needs attention."
                 },
                 "terminalManager.tabStyles": {
                     "type": "array",

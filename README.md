@@ -136,19 +136,24 @@ Values starting with `$` are resolved from the same terminal's variables, allowi
 
 ### `terminalManager.notifications`
 
-Enable system notifications when a background terminal needs attention. Notifications are triggered by:
+Configure notifications when a background terminal needs attention. Notifications are triggered by:
 
 1. **Shell execution events** — when a command finishes in a non-active terminal
 2. **Idle detection** — when a terminal's vars JSON stops being updated (e.g. Claude finished processing), a notification fires after a 10-second debounce
 3. **Explicit notifications** — when a `notification` field is written to the terminal's `/tmp/terminal-manager/{pid}.json` data file (e.g. by a Claude Code `Notification` hook for permission prompts)
 
-**Default:** `false`
+| Value | Description |
+|-------|-------------|
+| `"off"` | No notifications (default) |
+| `"vscode"` | VS Code notifications with a **Show** button to jump to the terminal |
+| `"system"` | OS-level notifications via [terminal-notifier](https://github.com/julienXX/terminal-notifier) (macOS) or notify-send (Linux). Clicking opens VS Code |
+| `"both"` | Both VS Code and OS-level notifications |
 
 ```json
-"terminalManager.notifications": true
+"terminalManager.notifications": "both"
 ```
 
-When a notification fires, it includes a **Show** button to jump directly to the terminal.
+**macOS:** OS-level notifications require `terminal-notifier` — install with `brew install terminal-notifier`.
 
 #### Claude Code integration
 

@@ -1,4 +1,5 @@
 import * as vscode from "vscode";
+import { isEnabled, notify } from "./notify";
 import { TerminalTracker } from "./terminalTracker";
 import { TerminalVarsWatcher } from "./terminalVarsWatcher";
 import { TerminalManagerViewProvider } from "./webviewProvider";
@@ -14,8 +15,7 @@ export function activate(context: vscode.ExtensionContext) {
     provider,
     vscode.window.registerWebviewViewProvider(TerminalManagerViewProvider.viewType, provider),
     varsWatcher.onDidRequestNotification(async ({ pid, message }) => {
-      const config = vscode.workspace.getConfiguration("terminalManager");
-      if (!config.get<boolean>("notifications", false)) return;
+      if (!isEnabled()) return;
 
       // Match the terminal by comparing vars object references.
       // loadFile sets all symlinked PIDs to the same object, so this
@@ -36,13 +36,7 @@ export function activate(context: vscode.ExtensionContext) {
         info.hasUnread = true;
         // Strip timestamp suffix added by notification hook for uniqueness
         const displayMessage = message.replace(/ @\d+$/, "");
-        const choice = await vscode.window.showInformationMessage(
-          `Terminal "${info.name}": ${displayMessage}`,
-          "Show",
-        );
-        if (choice === "Show") {
-          info.terminal.show();
-        }
+        notify(displayMessage, info.terminal);
         break;
       }
     }),
